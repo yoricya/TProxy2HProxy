@@ -38,7 +38,7 @@ fn main(){
             panic!("[E] Cannot start server: {err}");
         });
 
-        
+
         let fd: i32 = listener.as_raw_fd();
         if conf.is_verbose {
             println!("[I] Server docket descriptor: {fd}");
@@ -214,7 +214,7 @@ async fn handle_client(mut stream: TcpStream, conf: TPForwarderConf) {
     // Извлекаем домен из хеадера
     let connect_to_port = connect_to.port();
 
-    let domain_or_none = if connect_to_port == 80 { // HTTP Порт
+    let mut domain_or_none = if connect_to_port == 80 { // HTTP Порт
         
         // Пробуем парсить как HTTP
         http_extract_domain(&(buff.clone())) 
@@ -225,21 +225,24 @@ async fn handle_client(mut stream: TcpStream, conf: TPForwarderConf) {
         tls_extract_domain(&(buff.clone()))
 
     } else {
+        None
+    };
 
-        // Если преимущественно по номеру порту не удалось извлечь домен пробуем без учета номера порта
-        
+    // Если преимущественно по номеру порта не удалось извлечь домен - пробуем без учета номера порта
+    if domain_or_none.is_none() {
+
         // Пробуем парсить как TLS трафик
-        let mut d = tls_extract_domain(&(buff.clone()));
+        domain_or_none = tls_extract_domain(&(buff.clone()));
 
-        if d.is_none() { 
+        // Не получилось?
+        if domain_or_none.is_none() { 
 
-            // Пробуем парсить как HTTP трафик
-            d = http_extract_domain(&(buff.clone()));
+            // Тогда пробуем парсить как HTTP
+            domain_or_none = http_extract_domain(&(buff.clone()));
 
         }
 
-        d
-    };
+    }
 
 
     // Get destination socket
